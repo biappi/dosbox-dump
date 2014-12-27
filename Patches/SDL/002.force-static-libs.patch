@@ -1,0 +1,17 @@
+--- Build/Prefix/bin/sdl-config	2014-12-27 07:27:17.000000000 +0100
++++ PatchedFiles/Build/Prefix/bin/sdl-config	2014-12-27 07:27:00.000000000 +0100
+@@ -44,12 +44,8 @@
+     --cflags)
+       echo -I${prefix}/include/SDL -D_GNU_SOURCE=1 -D_THREAD_SAFE
+       ;;
+-    --libs)
+-      echo -L${exec_prefix}/lib  -lSDLmain -lSDL   -Wl,-framework,Cocoa
+-      ;;
+-    --static-libs)
+-#    --libs|--static-libs)
+-      echo -L${exec_prefix}/lib  ${libdir}/libSDLmain.a ${libdir}/libSDL.a  -Wl,-framework,OpenGL  -Wl,-framework,Cocoa -Wl,-framework,ApplicationServices -Wl,-framework,Carbon -Wl,-framework,AudioToolbox -Wl,-framework,AudioUnit -Wl,-framework,IOKit
++    --libs|--static-libs)
++      echo  ${libdir}/libSDLmain.a ${libdir}/libSDL.a  -Wl,-framework,OpenGL  -Wl,-framework,Cocoa -Wl,-framework,ApplicationServices -Wl,-framework,Carbon -Wl,-framework,AudioToolbox -Wl,-framework,AudioUnit -Wl,-framework,IOKit
+       ;;
+     *)
+       echo "${usage}" 1>&2
