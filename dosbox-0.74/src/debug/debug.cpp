@@ -1548,8 +1548,19 @@ char* AnalyzeInstruction(char* inst, bool saveSelector) {
 	return result;
 };
 
+void ReissuePreviousCommand() {
+    safe_strncpy(codeViewData.inputStr,
+                 codeViewData.prevInputStr,
+                 sizeof(codeViewData.inputStr));
 
-
+    // all upper usually is an error, so
+    // let's all lower 
+    char * i = codeViewData.inputStr;
+    while (*i != 0) {
+        *i = tolower(*i);
+        i++;
+    }
+}
 
 Bit32u DEBUG_CheckKeys(void) {
 	Bits ret=0;
@@ -1646,9 +1657,8 @@ Bit32u DEBUG_CheckKeys(void) {
 				break;
 		case KEY_F(6):  // Re-enter previous command (f1-f4 generate rubbish at my place)
 		case KEY_F(3):  // Re-enter previous command
-				// copy prevInputStr back into inputStr
-				safe_strncpy(codeViewData.inputStr, codeViewData.prevInputStr, sizeof(codeViewData.inputStr));
-				break;
+                ReissuePreviousCommand();
+                break;
 
 		case KEY_F(5):	// Run Program
                 Continue();
@@ -1677,14 +1687,28 @@ Bit32u DEBUG_CheckKeys(void) {
                 break;
 
 		case 0x0A: //Parse typed Command
-				codeViewData.inputMode = true;
-				if(ParseCommand(codeViewData.inputStr)) {
-					// copy inputStr to prevInputStr so we can restore it if the user hits F3
-					safe_strncpy(codeViewData.prevInputStr, codeViewData.inputStr, sizeof(codeViewData.prevInputStr));
-					// clear input line ready for next command
-					codeViewData.inputStr[0] = 0;
-				}
-				break;
+            codeViewData.inputMode = true;
+
+            if(ParseCommand(codeViewData.inputStr)) {
+                // copy inputStr to prevInputStr so we can restore it if the user hits F3
+                safe_strncpy(codeViewData.prevInputStr,
+                             codeViewData.inputStr,
+                             sizeof(codeViewData.prevInputStr));
+
+                // clear input line ready for next command
+                codeViewData.inputStr[0] = 0;
+            }
+
+            if (codeViewData.inputStr[0] == 0) {
+                // Reissue only if it was not an error
+                // (in case of errors, the debugger will
+                // copy the uppercase version of the command
+                // in the inputbox)
+                ReissuePreviousCommand();
+            }
+
+            break;
+
 		case 0x107:     //backspace (linux)
 		case 0x7f:	//backspace in some terminal emulators (linux)
 		case 0x08:	// delete
