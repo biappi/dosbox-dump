@@ -77,6 +77,8 @@ static void SetCodeWinStart();
 char* AnalyzeInstruction(char* inst, bool saveSelector);
 Bit32u GetHexValue(char* str, char*& hex);
 
+// This was warning during compilation
+#if 0
 class DebugPageHandler : public PageHandler {
 public:
 	Bitu readb(PhysPt /*addr*/) {
@@ -91,11 +93,9 @@ public:
 	}
 	void writed(PhysPt /*addr*/,Bitu /*val*/) {
 	}
-
-
-
 };
 
+#endif
 
 class DEBUG;
 
