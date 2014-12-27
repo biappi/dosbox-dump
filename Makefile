@@ -1,12 +1,11 @@
 PREFIX_DIR = $(CURDIR)/Build/Prefix
 
-dosbox: $(PREFIX_DIR)/bin/dosbox
-	cp $(PREFIX_DIR)/bin/dosbox .
+dosbox: dosbox-0.74/src/dosbox
+	cp dosbox-0.74/src/dosbox .
 
-$(PREFIX_DIR)/bin/dosbox: $(PREFIX_DIR)/bin/sdl-config
-	tar -xzf Tarballs/dosbox-0.74.tar.gz
+dosbox-0.74/src/dosbox: $(PREFIX_DIR)/bin/sdl-config dosbox-0.74
 	cd dosbox-0.74 && ./configure --enable-debug=heavy --prefix=$(PREFIX_DIR) --with-sdl-prefix=$(PREFIX_DIR) CPPFLAGS=-DNCURSES_OPAQUE=0
-	cd dosbox-0.74 && make && make install
+	cd dosbox-0.74 && make
 
 $(PREFIX_DIR)/bin/sdl-config: Tarballs/SDL-1.2.15.tar.gz
 	rm -fr Build/SDL && mkdir -p Build/SDL
