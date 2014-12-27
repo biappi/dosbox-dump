@@ -72,6 +72,7 @@ static void LogPages(char* selname);
 static void LogCPUInfo(void);
 static void OutputVecTable(char* filename);
 static void DrawVariables(void);
+static void SetCodeWinStart();
 
 char* AnalyzeInstruction(char* inst, bool saveSelector);
 Bit32u GetHexValue(char* str, char*& hex);
@@ -631,23 +632,65 @@ bool DEBUG_IntBreakpoint(Bit8u intNum)
 	return true;
 };
 
-static bool StepOver()
+static
+Bits StepInto()
 {
-	exitLoop = false;
-	PhysPt start=GetAddress(SegValue(cs),reg_eip);
-	char dline[200];Bitu size;
-	size=DasmI386(dline, start, reg_eip, cpu.code.big);
+    Bits ret = 0;
+    exitLoop = false;
+    skipFirstInstruction = true; // for heavy debugger
+    CPU_Cycles = 1;
+    ret = (*cpudecoder)();
+    SetCodeWinStart();
+    CBreakpoint::ignoreOnce = 0;
+    return ret;
+}
 
-	if (strstr(dline,"call") || strstr(dline,"int") || strstr(dline,"loop") || strstr(dline,"rep")) {
-		CBreakpoint::AddBreakpoint		(SegValue(cs),reg_eip+size, true);
+static
+Bits StepOver()
+{
+	char dline[200];
+
+    Bits   ret   = 0;
+    PhysPt start = GetAddress(SegValue(cs), reg_eip);
+    Bitu   size  = DasmI386(dline, start, reg_eip, cpu.code.big);
+
+	exitLoop = false;
+
+	if (strstr(dline,"call") ||
+        strstr(dline,"int")  ||
+        strstr(dline,"loop") ||
+        strstr(dline,"rep"))
+    {
+		CBreakpoint::AddBreakpoint(SegValue(cs), reg_eip + size, true);
 		CBreakpoint::ActivateBreakpoints(start, true);
-		debugging=false;
+
+		debugging = false;
 		DrawCode();
 		DOSBOX_SetNormalLoop();
-		return true;
 	} 
-	return false;
-};
+    else
+    {
+        skipFirstInstruction = true; // for heavy debugger
+
+        CPU_Cycles = 1;
+        ret=(*cpudecoder)();
+
+        SetCodeWinStart();
+
+        CBreakpoint::ignoreOnce = 0;
+    }
+
+    return ret;
+}
+
+static
+void Continue()
+{
+    debugging = false;
+    CBreakpoint::ActivateBreakpoints(SegPhys(cs) + reg_eip, true);						
+    ignoreAddressOnce = SegPhys(cs) + reg_eip;
+    DOSBOX_SetNormalLoop();	
+}
 
 bool DEBUG_ExitLoop(void)
 {
@@ -950,6 +993,7 @@ bool ChangeRegister(char* str)
 	return true;
 };
 
+
 bool ParseCommand(char* str) {
 	char* found = str;
 	for(char* idx = found;*idx != 0; idx++)
@@ -1241,6 +1285,20 @@ bool ParseCommand(char* str) {
 		return true;
 	};
 
+    if (command == "CONTINUE" || command == "CONT") {
+        Continue();
+        return true;
+    }
+
+    if (command == "STEPI") {
+        StepInto();
+        return true;
+    }
+
+    if (command == "STEP") {
+        StepOver();
+        return true;
+    }
 
 #if C_HEAVY_DEBUG
 	if (command == "HEAVYLOG") { // Create Cpu log file
@@ -1491,6 +1549,8 @@ char* AnalyzeInstruction(char* inst, bool saveSelector) {
 };
 
 
+
+
 Bit32u DEBUG_CheckKeys(void) {
 	Bits ret=0;
 	int key=getch();
@@ -1589,37 +1649,33 @@ Bit32u DEBUG_CheckKeys(void) {
 				// copy prevInputStr back into inputStr
 				safe_strncpy(codeViewData.inputStr, codeViewData.prevInputStr, sizeof(codeViewData.inputStr));
 				break;
+
 		case KEY_F(5):	// Run Program
-				debugging=false;
-				CBreakpoint::ActivateBreakpoints(SegPhys(cs)+reg_eip,true);						
-				ignoreAddressOnce = SegPhys(cs)+reg_eip;
-				DOSBOX_SetNormalLoop();	
+                Continue();
 				break;
+
 		case KEY_F(9):	// Set/Remove TBreakpoint
-				{	PhysPt ptr = GetAddress(codeViewData.cursorSeg,codeViewData.cursorOfs);
-					if (CBreakpoint::IsBreakpoint(ptr)) CBreakpoint::DeleteBreakpoint(ptr);
-					else								CBreakpoint::AddBreakpoint(codeViewData.cursorSeg, codeViewData.cursorOfs, false);
-				}
-						break;
+        {
+                PhysPt ptr = GetAddress(codeViewData.cursorSeg,
+                                        codeViewData.cursorOfs);
+
+                if (CBreakpoint::IsBreakpoint(ptr))
+                    CBreakpoint::DeleteBreakpoint(ptr);
+				else
+                    CBreakpoint::AddBreakpoint(codeViewData.cursorSeg,
+                                               codeViewData.cursorOfs,
+                                               false);
+                break;
+        }
+
 		case KEY_F(10):	// Step over inst
-				if (StepOver()) return 0;
-				else {
-					exitLoop = false;
-					skipFirstInstruction = true; // for heavy debugger
-					CPU_Cycles = 1;
-					ret=(*cpudecoder)();
-					SetCodeWinStart();
-					CBreakpoint::ignoreOnce = 0;
-				}
-				break;
+                ret = StepOver();
+                break;
+
 		case KEY_F(11):	// trace into
-				exitLoop = false;
-				skipFirstInstruction = true; // for heavy debugger
-				CPU_Cycles = 1;
-				ret = (*cpudecoder)();
-				SetCodeWinStart();
-				CBreakpoint::ignoreOnce = 0;
-				break;
+                ret = StepInto();
+                break;
+
 		case 0x0A: //Parse typed Command
 				codeViewData.inputMode = true;
 				if(ParseCommand(codeViewData.inputStr)) {
