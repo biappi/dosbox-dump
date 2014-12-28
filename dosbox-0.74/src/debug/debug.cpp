@@ -994,7 +994,7 @@ bool ChangeRegister(char* str)
 };
 
 
-bool ParseCommand(char* str) {
+bool ParseCommand(char* str, Bits * ret_hack) {
 	char* found = str;
 	for(char* idx = found;*idx != 0; idx++)
 		*idx = toupper(*idx);
@@ -1291,12 +1291,12 @@ bool ParseCommand(char* str) {
     }
 
     if (command == "STEPI") {
-        StepInto();
+        *ret_hack = StepInto();
         return true;
     }
 
     if (command == "STEP") {
-        StepOver();
+        *ret_hack = StepOver();
         return true;
     }
 
@@ -1688,8 +1688,7 @@ Bit32u DEBUG_CheckKeys(void) {
 
 		case 0x0A: //Parse typed Command
             codeViewData.inputMode = true;
-
-            if(ParseCommand(codeViewData.inputStr)) {
+            if(ParseCommand(codeViewData.inputStr, &ret)) {
                 // copy inputStr to prevInputStr so we can restore it if the user hits F3
                 safe_strncpy(codeViewData.prevInputStr,
                              codeViewData.inputStr,
