@@ -78,6 +78,8 @@ void DEBUG_ShowMsg(char const* format,...) {
 	logBuffPos = logBuff.end();
 	wprintw(dbg.win_out,"%s",buf);
 	wrefresh(dbg.win_out);
+
+    NETBUG_SendMsg(buf);
 }
 
 void DEBUG_RefreshPage(char scroll) {
@@ -279,7 +281,6 @@ void DBGUI_StartUp(void) {
 	cycle_count=0;
 	MakePairs();
 	MakeSubWindows();
-
 }
 
 #endif

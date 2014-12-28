@@ -33,3 +33,8 @@ extern Bitu debugCallback;
 bool DEBUG_HeavyIsBreakpoint(void);
 void DEBUG_HeavyWriteLogInstruction(void);
 #endif
+
+void NETBUG_StartServer();
+void NETBUG_BeginCaptureOutput();
+void NETBUG_EndCaptureOutput();
+void NETBUG_SendMsg(char * buf);

@@ -50,6 +50,8 @@ using namespace std;
 #include "keyboard.h"
 #include "setup.h"
 
+#include "debug_server.cpp"
+
 #ifdef WIN32
 void WIN32_Console();
 #else
@@ -102,7 +104,6 @@ class DEBUG;
 DEBUG*	pDebugcom	= 0;
 bool	exitLoop	= false;
 
-
 // Heavy Debugging Vars for logging
 #if C_HEAVY_DEBUG
 static ofstream 	cpuLogFile;
@@ -154,6 +155,8 @@ struct SCodeViewData {
 static Bit16u	dataSeg;
 static Bit32u	dataOfs;
 static bool		showExtend = true;
+
+static char remoteCommand[1024] = {0};
 
 /***********/
 /* Helpers */
@@ -611,6 +614,8 @@ void CBreakpoint::ShowList(void)
 		nr++;
 	}
 };
+
+void n_log(const char* fmt, ...);
 
 bool DEBUG_Breakpoint(void)
 {
@@ -1564,7 +1569,24 @@ void ReissuePreviousCommand() {
 
 Bit32u DEBUG_CheckKeys(void) {
 	Bits ret=0;
-	int key=getch();
+	int  key;
+
+    if (!remoteCommand[0]) {
+        timeout(100);
+        while ((key = getch()) == ERR) {
+            NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
+            break;
+        }
+        timeout(0);
+    }
+
+    if (remoteCommand[0]) {
+        NETBUG_BeginCaptureOutput();
+        ParseCommand(remoteCommand, &ret);
+        remoteCommand[0] = 0;
+        key = 0;
+    }
+
 	if (key>0) {
 #if defined(WIN32) && defined(__PDCURSES__)
 		switch (key) {
@@ -1721,18 +1743,23 @@ Bit32u DEBUG_CheckKeys(void) {
 				break;
 
 		}
-                if (ret<0) return ret;
-		if (ret>0) {
-			ret=(*CallBack_Handlers[ret])();
-			if (ret) {
-				exitLoop=true;
-				CPU_Cycles=CPU_CycleLeft=0;
-				return ret;
-			}
-		}
-		ret=0;
-		DEBUG_DrawScreen();
 	}
+
+    NETBUG_EndCaptureOutput();
+
+    if (ret<0)
+        return ret;
+
+    if (ret>0) {
+        ret=(*CallBack_Handlers[ret])();
+        if (ret) {
+            exitLoop=true;
+            CPU_Cycles=CPU_CycleLeft=0;
+            return ret;
+        }
+    }
+    ret=0;
+    DEBUG_DrawScreen();
 	return ret;
 };
 
@@ -1751,7 +1778,8 @@ Bitu DEBUG_Loop(void) {
 		DOSBOX_SetNormalLoop();
 		return 0;
 	}
-	return DEBUG_CheckKeys();
+
+    return DEBUG_CheckKeys();
 }
 
 void DEBUG_Enable(bool pressed) {
@@ -2141,6 +2169,8 @@ void DEBUG_Init(Section* sec) {
 	CALLBACK_Setup(debugCallback,DEBUG_EnableDebugger,CB_RETF,"debugger");
 	/* shutdown function */
 	sec->AddDestroyFunction(&DEBUG_ShutDown);
+
+    NETBUG_StartServer();
 }
 
 // DEBUGGING VAR STUFF
@@ -2448,7 +2478,16 @@ void DEBUG_HeavyWriteLogInstruction(void) {
 };
 
 bool DEBUG_HeavyIsBreakpoint(void) {
+    {
+        if (remoteCommand[0] == 0) {
+            NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
+            if (remoteCommand[0] != 0)
+                return true;
+        }
+    }
+
 	static Bitu zero_count = 0;
+
 	if (cpuLog) {
 		if (cpuLogCounter>0) {
 			LogInstruction(SegValue(cs),reg_eip,cpuLogFile);
