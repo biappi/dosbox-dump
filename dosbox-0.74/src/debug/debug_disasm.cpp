@@ -69,6 +69,7 @@ Any comments/updates/bug reports to:
 #include <stdarg.h>
 #include <stdlib.h>
 #include "mem.h"
+#include "debug_exeinfo.h"
 
 typedef Bit8u  UINT8;
 typedef Bit16u UINT16;
@@ -437,8 +438,12 @@ static char *addr_to_hex(UINT32 addr, int splitup) {
   if (splitup) {
     if (fp_segment(addr)==0 || fp_offset(addr)==0xffff) /* 'coz of wraparound */
       sprintf(buffer, "%04X", (unsigned)fp_offset(addr) );
-    else
-      sprintf(buffer, "%04X:%04X", (unsigned)fp_segment(addr), (unsigned)fp_offset(addr) );
+    else {
+      char segment_name[7];
+      DEBUG_Exeinfo::SegmentName((unsigned)fp_segment(addr), segment_name, sizeof(segment_name));
+
+      sprintf(buffer, "%s:%04X", segment_name, (unsigned)fp_offset(addr) );
+    }
   } else {
 #if 0
 	  /* Pet outcommented, reducing address size to 4
@@ -578,7 +583,13 @@ static void outhex(char subtype, int extend, int optional, int defsize, int sign
   for (; i<extend; i++)
     buff[i] = (buff[i-1] & 0x80) ? 0xff : 0;
   if (s) {
-    uprintf("%02X%02X:", (unsigned)buff[n-1], (unsigned)buff[n-2]);
+
+    // MA PORCO DIO CHE E` STA MERDA
+    uint16_t addr = ((unsigned)buff[n-1] << 8) + buff[n-2];
+    char segment_name[7];
+    DEBUG_Exeinfo::SegmentName(addr, segment_name, sizeof(segment_name));
+    
+    uprintf("%s:", segment_name);
     n -= 2;
   }
   switch (n) {

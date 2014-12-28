@@ -51,6 +51,7 @@ using namespace std;
 #include "setup.h"
 
 #include "debug_server.cpp"
+#include "debug_exeinfo.cpp"
 
 #ifdef WIN32
 void WIN32_Console();
@@ -815,7 +816,7 @@ static void DrawCode(void) {
 	PhysPt start  = GetAddress(codeViewData.useCS,codeViewData.useEIP);
 	char dline[200];Bitu size;Bitu c;
 	static char line20[21] = "                    ";
-	
+
 	for (int i=0;i<10;i++) {
 		saveSel = false;
 		if (has_colors()) {
@@ -842,7 +843,11 @@ static void DrawCode(void) {
 
 		Bitu drawsize=size=DasmI386(dline, start, disEIP, cpu.code.big);
 		bool toolarge = false;
-		mvwprintw(dbg.win_code,i,0,"%04X:%04X  ",codeViewData.useCS,disEIP);
+
+        char segment_name[7];
+        DEBUG_Exeinfo::SegmentName(codeViewData.useCS, segment_name, sizeof(segment_name));
+
+		mvwprintw(dbg.win_code,i,0,"%s:%04X  ", segment_name, disEIP);
 		
 		if (drawsize>10) { toolarge = true; drawsize = 9; };
 		for (c=0;c<drawsize;c++) {

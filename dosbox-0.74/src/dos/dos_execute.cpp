@@ -255,6 +255,8 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 	Bitu headersize=0,imagesize=0;
 	DOS_ParamBlock block(block_pt);
 
+    DEBUG_Exeinfo exeinfo;
+
 	block.LoadData();
 	//Remove the loadhigh flag for the moment!
 	if(flags&0x80) LOG(LOG_EXEC,LOG_ERROR)("using loadhigh flag!!!!!. dropping it");
@@ -395,6 +397,8 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 			relocpt=host_readd((HostPt)&relocpt);		//Endianize
 			PhysPt address=PhysMake(RealSeg(relocpt)+loadseg,RealOff(relocpt));
 			mem_writew(address,mem_readw(address)+relocate);
+
+            exeinfo.AddRelocationSegment(RealSeg(relocpt)+loadseg);
 		}
 	}
 	delete[] loadbuf;
