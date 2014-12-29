@@ -1717,20 +1717,21 @@ Bit32u DEBUG_CheckKeys(void) {
             codeViewData.inputMode = true;
             if(ParseCommand(codeViewData.inputStr, &ret)) {
                 // copy inputStr to prevInputStr so we can restore it if the user hits F3
-                safe_strncpy(codeViewData.prevInputStr,
-                             codeViewData.inputStr,
-                             sizeof(codeViewData.prevInputStr));
+                // only if it wasn't already a reissue
+                if (codeViewData.inputStr[0]) {
+                    safe_strncpy(codeViewData.prevInputStr,
+                                 codeViewData.inputStr,
+                                 sizeof(codeViewData.prevInputStr));
+                }
 
                 // clear input line ready for next command
                 codeViewData.inputStr[0] = 0;
             }
 
             if (codeViewData.inputStr[0] == 0) {
-                // Reissue only if it was not an error
-                // (in case of errors, the debugger will
-                // copy the uppercase version of the command
-                // in the inputbox)
-                ReissuePreviousCommand();
+                if (codeViewData.prevInputStr[0]) {
+                    ParseCommand(codeViewData.prevInputStr, &ret);
+                }
             }
 
             break;
