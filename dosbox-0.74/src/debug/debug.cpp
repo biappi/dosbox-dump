@@ -1309,6 +1309,11 @@ bool ParseCommand(char* str, Bits * ret_hack) {
         return true;
     }
 
+    if (command == "REDRAW") {
+        DEBUG_DrawScreen();
+        return true;
+    }
+
 #if C_HEAVY_DEBUG
 	if (command == "HEAVYLOG") { // Create Cpu log file
 		logHeavy = !logHeavy;
