@@ -22,6 +22,7 @@ static int  netbugger_socket_fd = 0;
 // BAD GLOBALS ARE BAD --v
 
 struct {
+    bool            want_response;
     char            command[1024];
     int             client_fd;
     bool            capturing;
@@ -109,7 +110,8 @@ void connection_handler(int fd)
                 command_top++;
             }
             else if (!isprint(read[i])) {
-                n_log("send error\n");
+                const char * e = "E: Printable chars, please\n";
+                send(fd, e, strlen(e), 0)
                 return;
             }
             else {
@@ -118,9 +120,8 @@ void connection_handler(int fd)
             }
 
             if (command_top >= command_end) {
-                n_log("TOO LONG\n");
-                const char * e = "E: Command too long";
-                if (send(fd, "E: Command too long", strlen(e), 0) == -1)
+                const char * e = "E: Command too long\n";
+                if (send(fd, e, strlen(e), 0) == -1)
                     return;
 
                 memset(command, 0, sizeof(command));
@@ -171,7 +172,7 @@ int NETBUG_Init()
         n_log("error command init\n");
         return -1;
     }
-;
+
     if (pthread_cond_init(&netbugger_command.command_completion_cond, NULL) != 0) {
         n_log("error condition init\n");
         return -1;
@@ -187,6 +188,7 @@ void NETBUG_PutCommand(char * command)
         return;
     }
 
+    netbugger_command.want_response = true;
     strncpy(netbugger_command.command, command, sizeof(netbugger_command.command));
 
     if (strlen(netbugger_command.command))
@@ -196,6 +198,10 @@ void NETBUG_PutCommand(char * command)
         n_log("error mutex_unlock\n");
         return;
     }
+}
+
+bool NETBUG_WantResponse() {
+    return netbugger_command.want_response;
 }
 
 int NETBUG_GetCommand(char * buffer, size_t len)
@@ -220,12 +226,27 @@ int NETBUG_GetCommand(char * buffer, size_t len)
 
 void NETBUG_BeginCaptureOutput()
 {
+    netbugger_command.capturing = true;
 }
 
 void NETBUG_EndCaptureOutput()
 {
-    netbugger_command.client_fd = 0;
+    netbugger_command.capturing = false;
+}
 
+void NETBUG_FinishCommand(bool success) {
+    const char * ok = "C: OK\n";
+    const char * ko = "C: KO\n";
+
+    const char * to_send = success ? ok : ko;
+
+    if (send(netbugger_command.client_fd, to_send, strlen(to_send), 0) == -1) {
+        n_log("can't send it\n");
+    }
+
+    netbugger_command.client_fd = 0;
+    netbugger_command.want_response = false;
+ 
     if (pthread_cond_signal(&netbugger_command.command_completion_cond) != 0) {
         n_log("can't signal the command's over\n");
     }
@@ -233,10 +254,30 @@ void NETBUG_EndCaptureOutput()
 
 void NETBUG_SendMsg(char * buf)
 {
-    if (netbugger_command.client_fd == 0)
+    if (!netbugger_command.capturing || netbugger_command.client_fd == 0)
         return;
 
-    if (send(netbugger_command.client_fd, buf, strlen(buf), 0) == -1) {
+     // buf from debug_gui.cpp is hardcoded to 512
+    char to_send[1024] = {0};
+    char *buf_i  = buf;
+    char *send_i = to_send;
+    bool newline = true;
+
+    while (*buf_i != 0) {
+        if (newline) {
+            *send_i++ = 'O';
+            *send_i++ = ':';
+            *send_i++ = ' ';
+        }
+
+        *send_i = *buf_i;
+        newline = (*buf_i == '\n');
+
+        buf_i++;
+        send_i++;
+    } 
+
+    if (send(netbugger_command.client_fd, to_send, send_i - to_send, 0) == -1) {
         n_log("can't send it\n");
     }
 }

@@ -157,7 +157,6 @@ static Bit16u	dataSeg;
 static Bit32u	dataOfs;
 static bool		showExtend = true;
 
-static char remoteCommand[1024] = {0};
 
 /***********/
 /* Helpers */
@@ -1572,27 +1571,35 @@ void ReissuePreviousCommand() {
     }
 }
 
+// blocks waiting for keypress, concats command string
+// invoked once per keypress. a remote command my already
+// bre present from DEBUG_IsHeavyBreakpoint (incoming from
+// the network)
+
 Bit32u DEBUG_CheckKeys(void) {
 	Bits ret=0;
 	int  key;
 
-    if (!remoteCommand[0]) {
-        timeout(100);
-        while ((key = getch()) == ERR) {
-            NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
-            break;
-        }
-        timeout(0);
-    }
+    bool isRemote = false;
 
-    if (remoteCommand[0]) {
+    timeout(100);
+    do {
+        isRemote = NETBUG_WantResponse();
+        key = getch();
+    } while (key == ERR && !isRemote);
+    timeout(0);
+
+    if (isRemote) {
+        char remoteCommand[1024] = {0};
+        bool commandParsed;
+        NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
         NETBUG_BeginCaptureOutput();
-        ParseCommand(remoteCommand, &ret);
-        remoteCommand[0] = 0;
-        key = 0;
+        commandParsed = ParseCommand(remoteCommand, &ret);
+        NETBUG_EndCaptureOutput();
+        NETBUG_FinishCommand(commandParsed);
     }
 
-	if (key>0) {
+	if (key>0 && !isRemote) {
 #if defined(WIN32) && defined(__PDCURSES__)
 		switch (key) {
 		case ALT_D:
@@ -1750,8 +1757,6 @@ Bit32u DEBUG_CheckKeys(void) {
 
 		}
 	}
-
-    NETBUG_EndCaptureOutput();
 
     if (ret<0)
         return ret;
@@ -2484,15 +2489,10 @@ void DEBUG_HeavyWriteLogInstruction(void) {
 };
 
 bool DEBUG_HeavyIsBreakpoint(void) {
-    {
-        if (remoteCommand[0] == 0) {
-            NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
-            if (remoteCommand[0] != 0)
-                return true;
-        }
-    }
-
 	static Bitu zero_count = 0;
+
+    if (NETBUG_WantResponse())
+        return true;
 
 	if (cpuLog) {
 		if (cpuLogCounter>0) {

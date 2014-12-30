@@ -37,8 +37,10 @@ void DEBUG_HeavyWriteLogInstruction(void);
 void n_log(const char* fmt, ...);
 
 void NETBUG_StartServer();
+bool NETBUG_WantResponse();
 void NETBUG_BeginCaptureOutput();
 void NETBUG_EndCaptureOutput();
+void NETBUG_FinishCommand(bool success);
 void NETBUG_SendMsg(char * buf);
 
 #include "../src/debug/debug_exeinfo.h"
