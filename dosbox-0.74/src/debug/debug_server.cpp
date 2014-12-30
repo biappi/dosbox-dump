@@ -90,6 +90,10 @@ void connection_handler(int fd)
 
     while (1) {
         int  n = recv(fd, read, sizeof(read), 0);
+        if (n == 0) {
+            n_log("Bye bye\b");
+            return;
+        }
         if (n == -1) {
             perror("recv");
             return;
@@ -111,7 +115,7 @@ void connection_handler(int fd)
             }
             else if (!isprint(read[i])) {
                 const char * e = "E: Printable chars, please\n";
-                send(fd, e, strlen(e), 0)
+                send(fd, e, strlen(e), 0);
                 return;
             }
             else {
@@ -136,11 +140,13 @@ static
 void * listening_thread(void * unused)
 {
     while (1) {
+        n_log("## BEGIN LISTEN\n");
         if (listen(netbugger_socket_fd, 10) == -1) {
             perror("listen");
             return NULL;
         }
 
+        n_log("## BEGIN ACCEPT\n");
         sockaddr_in client_addr;
         socklen_t   client_addr_size;
         int client_socket = accept(netbugger_socket_fd,
@@ -151,12 +157,15 @@ void * listening_thread(void * unused)
             return NULL;
         }
 
+        n_log("## ACCEPTED\n");
         connection_handler(client_socket);
-        n_log("\n\nCONNECTION ENDED\n\n");
+        n_log("## CONNECTION ENDED\n");
 
         if (close(client_socket) == -1) {
             perror("close");
         }
+
+        n_log("## CONNECTION CLOSED\n");
     }
 }
 
