@@ -67,6 +67,7 @@ static void DrawCode(void);
 static void DEBUG_RaiseTimerIrq(void);
 static void SaveMemory(Bitu seg, Bitu ofs1, Bit32u num);
 static void SaveMemoryBin(Bitu seg, Bitu ofs1, Bit32u num);
+static void ShowMemoryDump(Bitu seg, Bitu ofs1, Bit32u num);
 static void LogMCBS(void);
 static void LogGDT(void);
 static void LogLDT(void);
@@ -1031,6 +1032,14 @@ bool ParseCommand(char* str, Bits * ret_hack) {
 		Bit32u ofs = GetHexValue(found,found); found++;
 		Bit32u num = GetHexValue(found,found); found++;
 		SaveMemoryBin(seg,ofs,num);
+		return true;
+	};
+
+	if (command == "SHOWMEMORY") {
+		Bit16u seg = (Bit16u)GetHexValue(found,found); found++;
+		Bit32u ofs = GetHexValue(found,found); found++;
+		Bit32u num = GetHexValue(found,found); found++;
+        ShowMemoryDump(seg,ofs,num);
 		return true;
 	};
 
@@ -2300,6 +2309,36 @@ static void SaveMemory(Bitu seg, Bitu ofs1, Bit32u num) {
 	}
 	fclose(f);
 	DEBUG_ShowMsg("DEBUG: Memory dump success.\n");
+}
+
+static void ShowMemoryDump(Bitu seg, Bitu ofs1, Bit32u num) {
+	char buffer[128];
+	char temp[16];
+
+	while (num>16) {
+		sprintf(buffer,"%04X:%04X   ",seg,ofs1);
+		for (Bit16u x=0; x<16; x++) {
+			Bit8u value;
+			if (mem_readb_checked(GetAddress(seg,ofs1+x),&value)) sprintf(temp,"?? ",value);
+			else sprintf(temp,"%02X ",value);
+			strcat(buffer,temp);
+		}
+		ofs1+=16;
+		num-=16;
+
+        DEBUG_ShowMsg(buffer);
+	}
+	if (num>0) {
+		sprintf(buffer,"%04X:%04X   ",seg,ofs1);
+		for (Bit16u x=0; x<num; x++) {
+			Bit8u value;
+			if (mem_readb_checked(GetAddress(seg,ofs1+x),&value)) sprintf(temp,"?? ",value);
+			else sprintf(temp,"%02X ",value);
+			strcat(buffer,temp);
+		}
+        DEBUG_ShowMsg(buffer);
+	}
+    DEBUG_ShowMsg("End");
 }
 
 static void SaveMemoryBin(Bitu seg, Bitu ofs1, Bit32u num) {
