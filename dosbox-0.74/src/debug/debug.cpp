@@ -115,7 +115,7 @@ static bool zeroProtect = false;
 bool	logHeavy	= false;
 #endif
 
-
+extern bool DISASM_HUMAN_NAMES;
 
 static struct  {
 	Bit32u eax,ebx,ecx,edx,esi,edi,ebp,esp,eip;
@@ -839,7 +839,7 @@ static void DrawCode(void) {
 			}
 		}
 
-
+        DISASM_HUMAN_NAMES = true;
 		Bitu drawsize=size=DasmI386(dline, start, disEIP, cpu.code.big);
 		bool toolarge = false;
 
@@ -1727,7 +1727,12 @@ Bit32u DEBUG_CheckKeys(void) {
 
 		case 0x0A: //Parse typed Command
             codeViewData.inputMode = true;
-            if(ParseCommand(codeViewData.inputStr, &ret)) {
+            if (codeViewData.inputStr[0] == 0) {
+                if (codeViewData.prevInputStr[0]) {
+                    ParseCommand(codeViewData.prevInputStr, &ret);
+                }
+            }
+            else if(ParseCommand(codeViewData.inputStr, &ret)) {
                 // copy inputStr to prevInputStr so we can restore it if the user hits F3
                 // only if it wasn't already a reissue
                 if (codeViewData.inputStr[0]) {
@@ -1740,11 +1745,6 @@ Bit32u DEBUG_CheckKeys(void) {
                 codeViewData.inputStr[0] = 0;
             }
 
-            if (codeViewData.inputStr[0] == 0) {
-                if (codeViewData.prevInputStr[0]) {
-                    ParseCommand(codeViewData.prevInputStr, &ret);
-                }
-            }
 
             break;
 

@@ -79,6 +79,7 @@ typedef Bit8s  INT8;
 typedef Bit16s INT16;
 typedef Bit32s INT32;
 
+bool DISASM_HUMAN_NAMES = false;
 
 /* Little endian uint read */
 #define	le_uint8(ptr) (*(UINT8*)ptr)
@@ -585,11 +586,17 @@ static void outhex(char subtype, int extend, int optional, int defsize, int sign
   if (s) {
 
     // MA PORCO DIO CHE E` STA MERDA
-    uint16_t addr = ((unsigned)buff[n-1] << 8) + buff[n-2];
-    char segment_name[7];
-    DEBUG_Exeinfo::SegmentName(addr, segment_name, sizeof(segment_name));
-    
-    uprintf("%s:", segment_name);
+
+    if (DISASM_HUMAN_NAMES) {
+        uint16_t addr = ((unsigned)buff[n-1] << 8) + buff[n-2];
+        char segment_name[7];
+        DEBUG_Exeinfo::SegmentName(addr, segment_name, sizeof(segment_name));
+        
+        uprintf("%s:", segment_name);
+    } else {
+        uprintf("%02X%02X:", (unsigned)buff[n-1], (unsigned)buff[n-2]);
+    }
+
     n -= 2;
   }
   switch (n) {
@@ -1115,6 +1122,8 @@ Bitu DasmI386(char* buffer, PhysPt pc, Bitu cur_ip, bool bit32)
     		uprintf("db %02X", (unsigned)c);
 		return 1;
 	}
+
+    DISASM_HUMAN_NAMES = false;
 
 	return getbyte_mac-pc;
 }
