@@ -261,10 +261,10 @@ void NETBUG_FinishCommand(bool success) {
     }
 }
 
-void NETBUG_SendMsg(char * buf)
+bool NETBUG_SendMsg(char * buf)
 {
     if (!netbugger_command.capturing || netbugger_command.client_fd == 0)
-        return;
+        return false;
 
      // buf from debug_gui.cpp is hardcoded to 512
     char to_send[1024] = {0};
@@ -289,6 +289,8 @@ void NETBUG_SendMsg(char * buf)
     if (send(netbugger_command.client_fd, to_send, send_i - to_send, 0) == -1) {
         n_log("can't send it\n");
     }
+
+    return true;
 }
 
 

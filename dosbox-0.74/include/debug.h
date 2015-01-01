@@ -41,6 +41,6 @@ bool NETBUG_WantResponse();
 void NETBUG_BeginCaptureOutput();
 void NETBUG_EndCaptureOutput();
 void NETBUG_FinishCommand(bool success);
-void NETBUG_SendMsg(char * buf);
+bool NETBUG_SendMsg(char * buf);
 
 #include "../src/debug/debug_exeinfo.h"

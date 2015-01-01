@@ -66,6 +66,9 @@ void DEBUG_ShowMsg(char const* format,...) {
 
 	if(debuglog) fprintf(debuglog,"%s",buf);
 
+    if (NETBUG_SendMsg(buf))
+        return;
+
 	if (logBuffPos!=logBuff.end()) {
 		logBuffPos=logBuff.end();
 		DEBUG_RefreshPage(0);
@@ -78,8 +81,6 @@ void DEBUG_ShowMsg(char const* format,...) {
 	logBuffPos = logBuff.end();
 	wprintw(dbg.win_out,"%s",buf);
 	wrefresh(dbg.win_out);
-
-    NETBUG_SendMsg(buf);
 }
 
 void DEBUG_RefreshPage(char scroll) {
