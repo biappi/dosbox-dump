@@ -78,6 +78,7 @@ static void LogCPUInfo(void);
 static void OutputVecTable(char* filename);
 static void DrawVariables(void);
 static void SetCodeWinStart();
+static void DumpRegisters(void);
 
 char* AnalyzeInstruction(char* inst, bool saveSelector);
 Bit32u GetHexValue(char* str, char*& hex);
@@ -716,6 +717,48 @@ bool DEBUG_ExitLoop(void)
 /*   Draw windows   */
 /********************/
 
+
+static void DumpRegisters(void) {
+	DEBUG_ShowMsg("eax: %08X",reg_eax);
+	DEBUG_ShowMsg("ebx: %08X",reg_ebx);
+	DEBUG_ShowMsg("ecx: %08X",reg_ecx);
+	DEBUG_ShowMsg("edx: %08X",reg_edx);
+
+	DEBUG_ShowMsg("esi: %08X",reg_esi);
+	DEBUG_ShowMsg("edi: %08X",reg_edi);
+	DEBUG_ShowMsg("ebp: %08X",reg_ebp);
+	DEBUG_ShowMsg("esp: %08X",reg_esp);
+	DEBUG_ShowMsg("eip: %08X",reg_eip);
+	
+	DEBUG_ShowMsg("ds: %04X",SegValue(ds));
+	DEBUG_ShowMsg("es: %04X",SegValue(es));
+	DEBUG_ShowMsg("fs: %04X",SegValue(fs));
+	DEBUG_ShowMsg("gs: %04X",SegValue(gs));
+	DEBUG_ShowMsg("ss: %04X",SegValue(ss));
+	DEBUG_ShowMsg("cs: %04X",SegValue(cs));
+
+	DEBUG_ShowMsg("flags: %08X", reg_flags);
+	DEBUG_ShowMsg("cpu_cpl: %01X", cpu.cpl);
+
+	if (cpu.pmode) {
+        if (reg_flags & FLAG_VM) DEBUG_ShowMsg("cpu_mode: VM86");
+        else if (cpu.code.big)   DEBUG_ShowMsg("cpu_mode: Pr32");
+        else                     DEBUG_ShowMsg("cpu_mode: Pr16");
+    } else {
+                                 DEBUG_ShowMsg("cpu_mode: Real");
+    }
+
+	// Selector info, if available
+	if ((cpu.pmode) && curSelectorName[0]) {
+		char out1[200], out2[200];
+		GetDescriptorInfo(curSelectorName,out1,out2);
+        DEBUG_ShowMsg("sel_1: %s", out1);
+        DEBUG_ShowMsg("sel_2: %s", out2);
+	}
+
+    DEBUG_ShowMsg("cpu_cycle_count: %08u", cycle_count);
+}
+
 static void DrawData(void) {
 	
 	Bit8u ch;
@@ -1041,6 +1084,11 @@ bool ParseCommand(char* str, Bits * ret_hack) {
 		Bit32u ofs = GetHexValue(found,found); found++;
 		Bit32u num = GetHexValue(found,found); found++;
         ShowMemoryDump(seg,ofs,num);
+		return true;
+	};
+
+	if (command == "SHOWREGISTERS") {
+        DumpRegisters();
 		return true;
 	};
 
