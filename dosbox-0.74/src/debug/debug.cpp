@@ -50,6 +50,7 @@ using namespace std;
 #include "keyboard.h"
 #include "setup.h"
 
+#include "render.h"
 #include "debug_server.cpp"
 #include "debug_exeinfo.cpp"
 
@@ -1042,6 +1043,16 @@ bool ParseCommand(char* str, Bits * ret_hack) {
         ShowMemoryDump(seg,ofs,num);
 		return true;
 	};
+
+    if (command == "DUMPPAL") {
+        for (int i = 0; i < 256; i++) {
+            int r = render.pal.rgb[i].red;
+            int g = render.pal.rgb[i].green;
+            int b = render.pal.rgb[i].blue;
+            DEBUG_ShowMsg("#%02x%02x%02x", r, g, b);
+        }
+        return true;
+    }
 
 	if (command == "IV") { // Insert variable
 		Bit16u seg = (Bit16u)GetHexValue(found,found); found++;
