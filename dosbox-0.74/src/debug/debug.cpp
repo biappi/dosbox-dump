@@ -2190,7 +2190,7 @@ void DEBUG_CheckExecuteBreakpoint(Bit16u seg, Bit32u off)
 	if (pDebugcom && pDebugcom->IsActive()) {
 		CBreakpoint::AddBreakpoint(seg,off,true);		
 		CBreakpoint::ActivateBreakpoints(SegPhys(cs)+reg_eip,true);	
-		pDebugcom = 0;
+		// pDebugcom = 0; // break on all executes if debug
 	};
 };
 
