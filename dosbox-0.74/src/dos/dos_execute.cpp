@@ -255,8 +255,6 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 	Bitu headersize=0,imagesize=0;
 	DOS_ParamBlock block(block_pt);
 
-    DEBUG_Exeinfo exeinfo;
-
 	block.LoadData();
 	//Remove the loadhigh flag for the moment!
 	if(flags&0x80) LOG(LOG_EXEC,LOG_ERROR)("using loadhigh flag!!!!!. dropping it");
@@ -266,6 +264,7 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 		return false;
 //		E_Exit("DOS:Not supported execute mode %d for file %s",flags,name);
 	}
+
 	/* Check for EXE or COM File */
 	bool iscom=false;
 	if (!DOS_OpenFile(name,OPEN_READ,&fhandle)) {
@@ -369,6 +368,14 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 	/* Load the executable */
 	loadaddress=PhysMake(loadseg,0);
 
+
+    char full_path[1024];
+    Bit8u the_drive;
+    DOS_MakeName(name, full_path, &the_drive);
+    n_log("execute name %s\n", full_path);
+    DEBUG_Exeinfo exeinfo;
+    exeinfo.Name(full_path);
+
 	if (iscom) {	/* COM Load 64k - 256 bytes max */
 		pos=0;DOS_SeekFile(fhandle,&pos,DOS_SEEK_SET);	
 		readsize=0xffff-256;
@@ -391,6 +398,9 @@ bool DOS_Execute(char * name,PhysPt block_pt,Bit8u flags) {
 		Bit16u relocate;
 		if (flags==OVERLAY) relocate=block.overlay.relocation;
 		else relocate=loadseg;
+
+        exeinfo.Relocation(relocate);
+
 		pos=head.reloctable;DOS_SeekFile(fhandle,&pos,0);
 		for (i=0;i<head.relocations;i++) {
 			readsize=4;DOS_ReadFile(fhandle,(Bit8u *)&relocpt,&readsize);

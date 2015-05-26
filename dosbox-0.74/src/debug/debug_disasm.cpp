@@ -585,17 +585,7 @@ static void outhex(char subtype, int extend, int optional, int defsize, int sign
     buff[i] = (buff[i-1] & 0x80) ? 0xff : 0;
   if (s) {
 
-    // MA PORCO DIO CHE E` STA MERDA
-
-    if (DISASM_HUMAN_NAMES) {
-        uint16_t addr = ((unsigned)buff[n-1] << 8) + buff[n-2];
-        char segment_name[7];
-        DEBUG_Exeinfo::SegmentName(addr, segment_name, sizeof(segment_name));
-        
-        uprintf("%s:", segment_name);
-    } else {
         uprintf("%02X%02X:", (unsigned)buff[n-1], (unsigned)buff[n-2]);
-    }
 
     n -= 2;
   }

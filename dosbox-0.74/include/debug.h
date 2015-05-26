@@ -37,6 +37,7 @@ void DEBUG_HeavyWriteLogInstruction(void);
 void n_log(const char* fmt, ...);
 
 void NETBUG_StartServer();
+void NETBUG_DebuggerGotControl();
 bool NETBUG_WantResponse();
 void NETBUG_BeginCaptureOutput();
 void NETBUG_EndCaptureOutput();

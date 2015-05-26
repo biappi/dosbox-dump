@@ -20,53 +20,32 @@ static bool netbugger_inited    = false;
 static int  netbugger_socket_fd = 0;
 
 // BAD GLOBALS ARE BAD --v
-
 struct {
     bool            want_response;
     char            command[1024];
     int             client_fd;
-    bool            capturing;
+    char            capturing;
 
     pthread_mutex_t client_connection_lock;
     pthread_mutex_t command_string_lock;
     pthread_cond_t  command_completion_cond;
 } netbugger_command;
-
 // BAD GLOBALS ARE BAD --^
 
-void n_log(const char* fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(pd, fmt, args);
-    va_end(args);
-    fflush(pd);
-}
-
-void NETBUG_PutCommand(char * command);
+static void put_command(char * command);
+static void send_cpu_state(char s);
 
 static
 int incoming_command(int fd, char * command)
 {
     n_log("incoming: >%s< (%d)\n", command, strlen(command));
 
-    if (pthread_mutex_lock(&netbugger_command.client_connection_lock) != 0) {
-        n_log("error connection lock\n");
-        return -1;
-    }
-
-    netbugger_command.client_fd= fd;
-    NETBUG_PutCommand(command);
+    put_command(command);
 
     if (pthread_cond_wait(&netbugger_command.command_completion_cond,
                           &netbugger_command.client_connection_lock) != 0)
     {
         n_log("error command wait\n");
-        return -1;
-    }
-
-    if (pthread_mutex_unlock(&netbugger_command.client_connection_lock) != 0) {
-        n_log("error connection unlock\n");
         return -1;
     }
 
@@ -134,6 +113,7 @@ void connection_handler(int fd)
             }
         }
     }
+
 }
 
 static
@@ -146,23 +126,39 @@ void * listening_thread(void * unused)
             return NULL;
         }
 
+        if (pthread_mutex_lock(&netbugger_command.client_connection_lock) != 0) {
+            n_log("error connection lock\n");
+            return NULL;
+        }
+
         n_log("## BEGIN ACCEPT\n");
         sockaddr_in client_addr;
         socklen_t   client_addr_size;
         int client_socket = accept(netbugger_socket_fd,
                                    (struct sockaddr *)&client_addr,
                                    &client_addr_size);
+
         if (client_socket == -1) {
             perror("accept");
             return NULL;
         }
 
+        netbugger_command.client_fd = client_socket;
+
         n_log("## ACCEPTED\n");
         connection_handler(client_socket);
         n_log("## CONNECTION ENDED\n");
 
+        netbugger_command.client_fd = client_socket;
+
         if (close(client_socket) == -1) {
             perror("close");
+        }
+
+
+        if (pthread_mutex_unlock(&netbugger_command.client_connection_lock) != 0) {
+            n_log("error connection unlock\n");
+            return NULL;
         }
 
         n_log("## CONNECTION CLOSED\n");
@@ -190,7 +186,8 @@ int NETBUG_Init()
     return 0;    
 }
 
-void NETBUG_PutCommand(char * command)
+static
+void put_command(char * command)
 {
     if (pthread_mutex_lock(&netbugger_command.command_string_lock) != 0) {
         n_log("error mutex_lock\n");
@@ -207,6 +204,11 @@ void NETBUG_PutCommand(char * command)
         n_log("error mutex_unlock\n");
         return;
     }
+}
+
+void NETBUG_DebuggerGotControl() {
+    if (!netbugger_command.want_response)
+        send_cpu_state('U');
 }
 
 bool NETBUG_WantResponse() {
@@ -235,25 +237,28 @@ int NETBUG_GetCommand(char * buffer, size_t len)
 
 void NETBUG_BeginCaptureOutput()
 {
-    netbugger_command.capturing = true;
+    netbugger_command.capturing = 'O';
 }
 
 void NETBUG_EndCaptureOutput()
 {
-    netbugger_command.capturing = false;
+    netbugger_command.capturing = 0;
 }
 
-void NETBUG_FinishCommand(bool success) {
-    const char * ok = "C: OK\n";
-    const char * ko = "C: KO\n";
+void NETBUG_FinishCommand(bool success, bool debugging) {
+    send_cpu_state('S');
 
-    const char * to_send = success ? ok : ko;
+    char to_send[1024];
+    snprintf(to_send,
+             sizeof(to_send),
+             "C: parsed: %s debugging: %s",
+             success   ? "true" : "false",
+             debugging ? "true": "false");
 
     if (send(netbugger_command.client_fd, to_send, strlen(to_send), 0) == -1) {
         n_log("can't send it\n");
     }
 
-    netbugger_command.client_fd = 0;
     netbugger_command.want_response = false;
  
     if (pthread_cond_signal(&netbugger_command.command_completion_cond) != 0) {
@@ -274,7 +279,7 @@ bool NETBUG_SendMsg(char * buf)
 
     while (*buf_i != 0) {
         if (newline) {
-            *send_i++ = 'O';
+            *send_i++ = netbugger_command.capturing;
             *send_i++ = ':';
             *send_i++ = ' ';
         }
@@ -333,5 +338,22 @@ void NETBUG_StartServer()
     }
 
     n_log("STARTED\n");
+}
+
+void DumpRegisters(void);
+void send_cpu_state(char s) {
+    char old = netbugger_command.capturing;
+    netbugger_command.capturing = s;
+    DumpRegisters();
+    netbugger_command.capturing = old;
+}
+
+void n_log(const char* fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(pd, fmt, args);
+    va_end(args);
+    fflush(pd);
 }
 

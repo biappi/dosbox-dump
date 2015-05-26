@@ -69,6 +69,7 @@ static void DEBUG_RaiseTimerIrq(void);
 static void SaveMemory(Bitu seg, Bitu ofs1, Bit32u num);
 static void SaveMemoryBin(Bitu seg, Bitu ofs1, Bit32u num);
 static void ShowMemoryDump(Bitu seg, Bitu ofs1, Bit32u num);
+static void ClearMemory(Bitu seg, Bitu ofs1, Bit32u num);
 static void LogMCBS(void);
 static void LogGDT(void);
 static void LogLDT(void);
@@ -78,7 +79,8 @@ static void LogCPUInfo(void);
 static void OutputVecTable(char* filename);
 static void DrawVariables(void);
 static void SetCodeWinStart();
-static void DumpRegisters(void);
+
+void DumpRegisters(void);
 
 char* AnalyzeInstruction(char* inst, bool saveSelector);
 Bit32u GetHexValue(char* str, char*& hex);
@@ -664,6 +666,11 @@ Bits StepOver()
 
 	exitLoop = false;
 
+    bool   breakpoint    = false;
+    Bit16u breakpoint_cs = SegValue(cs);
+    Bit32u breakpoint_ip = reg_eip + size;
+    
+
 	if (strstr(dline,"call") ||
         strstr(dline,"int")  ||
         strstr(dline,"loop") ||
@@ -675,10 +682,11 @@ Bits StepOver()
 		debugging = false;
 		DrawCode();
 		DOSBOX_SetNormalLoop();
-	} 
+	}
     else
     {
-        skipFirstInstruction = true; // for heavy debugger
+        // for heavy debugger
+        skipFirstInstruction = true;
 
         CPU_Cycles = 1;
         ret=(*cpudecoder)();
@@ -718,7 +726,7 @@ bool DEBUG_ExitLoop(void)
 /********************/
 
 
-static void DumpRegisters(void) {
+void DumpRegisters(void) {
 	DEBUG_ShowMsg("eax: %08X",reg_eax);
 	DEBUG_ShowMsg("ebx: %08X",reg_ebx);
 	DEBUG_ShowMsg("ecx: %08X",reg_ecx);
@@ -1087,6 +1095,14 @@ bool ParseCommand(char* str, Bits * ret_hack) {
 		return true;
 	};
 
+    if (command == "CLEARMEMORY") {
+		Bit16u seg = (Bit16u)GetHexValue(found,found); found++;
+		Bit32u ofs = GetHexValue(found,found); found++;
+		Bit32u num = GetHexValue(found,found); found++;
+        ClearMemory(seg,ofs,num);
+		return true;
+    }
+
 	if (command == "SHOWREGISTERS") {
         DumpRegisters();
 		return true;
@@ -1099,6 +1115,11 @@ bool ParseCommand(char* str, Bits * ret_hack) {
             int b = render.pal.rgb[i].blue;
             DEBUG_ShowMsg("#%02x%02x%02x", r, g, b);
         }
+        return true;
+    }
+
+    if (command == "SHOWRELOCATIONS") {
+        DEBUG_Exeinfo::ShowRelocations();
         return true;
     }
 
@@ -1665,11 +1686,12 @@ Bit32u DEBUG_CheckKeys(void) {
     if (isRemote) {
         char remoteCommand[1024] = {0};
         bool commandParsed;
+
         NETBUG_GetCommand(remoteCommand, sizeof(remoteCommand));
         NETBUG_BeginCaptureOutput();
         commandParsed = ParseCommand(remoteCommand, &ret);
         NETBUG_EndCaptureOutput();
-        NETBUG_FinishCommand(commandParsed);
+        NETBUG_FinishCommand(commandParsed, debugging);
     }
 
 	if (key>0 && !isRemote) {
@@ -1862,6 +1884,8 @@ Bitu DEBUG_Loop(void) {
 		DOSBOX_SetNormalLoop();
 		return 0;
 	}
+
+    NETBUG_DebuggerGotControl();
 
     return DEBUG_CheckKeys();
 }
@@ -2400,6 +2424,12 @@ static void ShowMemoryDump(Bitu seg, Bitu ofs1, Bit32u num) {
     DEBUG_ShowMsg("End");
 }
 
+static void ClearMemory(Bitu seg, Bitu ofs1, Bit32u num) {
+    for (Bit16u x=0; x<num; x++)
+        mem_writeb_checked(GetAddress(seg,ofs1+x), 0);
+    DEBUG_ShowMsg("End");
+}
+
 static void SaveMemoryBin(Bitu seg, Bitu ofs1, Bit32u num) {
 	FILE* f = fopen("MEMDUMP.BIN","wb");
 	if (!f) {
@@ -2594,8 +2624,6 @@ void DEBUG_HeavyWriteLogInstruction(void) {
 bool DEBUG_HeavyIsBreakpoint(void) {
 	static Bitu zero_count = 0;
 
-    if (NETBUG_WantResponse())
-        return true;
 
 	if (cpuLog) {
 		if (cpuLogCounter>0) {
@@ -2625,6 +2653,12 @@ bool DEBUG_HeavyIsBreakpoint(void) {
 		skipFirstInstruction = false;
 		return false;
 	}
+
+    if (NETBUG_WantResponse()) {
+        DEBUG_Enable(true);
+        return true;
+    }
+
 	if (CBreakpoint::CheckBreakpoint(SegValue(cs),reg_eip)) {
 		return true;	
 	}
