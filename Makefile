@@ -4,7 +4,7 @@ dosbox: dosbox-0.74/src/dosbox
 	cp dosbox-0.74/src/dosbox .
 
 dosbox-0.74/src/dosbox: $(PREFIX_DIR)/bin/sdl-config dosbox-0.74
-	cd dosbox-0.74 && ./configure --enable-debug=heavy --prefix=$(PREFIX_DIR) --with-sdl-prefix=$(PREFIX_DIR) CPPFLAGS=-DNCURSES_OPAQUE=0
+	cd dosbox-0.74 && ./configure --enable-debug=heavy --disable-opengl --prefix=$(PREFIX_DIR) --with-sdl-prefix=$(PREFIX_DIR) CPPFLAGS=-DNCURSES_OPAQUE=0
 	cd dosbox-0.74 && make
 
 $(PREFIX_DIR)/bin/sdl-config: Tarballs/SDL-1.2.15.tar.gz
